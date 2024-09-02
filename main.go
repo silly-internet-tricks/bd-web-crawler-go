@@ -5,10 +5,12 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strconv"
 	"sync"
 )
 
-const maxConcurrency = 10
+const defaultMaxConcurrency = 10
+const defaultMaxPages = 256
 
 func main() {
 	if len(os.Args) < 2 {
@@ -16,7 +18,7 @@ func main() {
 		log.Fatal("no website provided")
 	}
 
-	if len(os.Args) > 2 {
+	if len(os.Args) > 4 {
 		fmt.Println("too many arguments provided")
 		log.Fatal("too many arguments provided")
 	}
@@ -29,9 +31,31 @@ func main() {
 	}
 
 	mu := &sync.Mutex{}
+	var maxConcurrency int
+	var maxPages int
+	if len(os.Args) > 2 {
+		maxConcurrency, err = strconv.Atoi(os.Args[2])
+		if err != nil {
+			fmt.Println("couldn't parse argument two as integer. using default max concurrency")
+			maxConcurrency = defaultMaxConcurrency
+		}
+	} else {
+		maxConcurrency = defaultMaxConcurrency
+	}
+
+	if len(os.Args) > 3 {
+		maxPages, err = strconv.Atoi(os.Args[3])
+		if err != nil {
+			fmt.Println("couldn't parse argument three as integer. using default max pages")
+		}
+	} else {
+		maxPages = defaultMaxPages
+	}
+
 	concurrencyControl := make(chan struct{}, maxConcurrency)
 	wg := &sync.WaitGroup{}
 	cfg := config{
+		maxPages,
 		pages,
 		baseURL,
 		mu,
@@ -47,7 +71,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	for key, value := range cfg.pages {
-		fmt.Printf("I found *%v* links to the page: %v\n", value, key)
-	}
+	printReport(cfg.pages, cfg.baseURL.String())
 }
